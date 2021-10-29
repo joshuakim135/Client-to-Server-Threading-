@@ -3,28 +3,19 @@
 #include "BoundedBuffer.h"
 #include "HistogramCollection.h"
 #include <sys/wait.h>
+
 using namespace std;
 
-/* Where to create new channels for worker Threads
-- create all at once in main and pass each channel as an argument to the worker function
-- could create a new channel at the beginning of the worker func, and call quit once done
-*/
-
-// Parameters: Patient number | Request Buffer ref | 
-	  	// Number of requests n | other optional vals
 void patient_thread_function(int p, int n, BoundedBuffer* request_buffer){
-    /* What will the patient threads do? */ // just do ecg 1
-	// 1 thread per patient
-	// for each thread
-		// create a data packet (instance of DataReq class)
-		// push packet to request buffer
-		// repeat a&b for the first n timestamps
+	// create a data request
 	DataRequest d(p, 0.0, 1);
-	
+
+	// convert DataRequest to vector<char>
 	vector<char> data((char*)&d, (char*)&d + sizeof(DataRequest));
+
 	for (int i = 0; i < n; i++) {
 		request_buffer->push(data, sizeof(DataRequest));
-		d.seconds += 0.004;
+		d.seconds += 0.004; // this will update d.seconds so it pulls the next ECG val
 	}
 }
 
@@ -61,8 +52,18 @@ void histogram_thread_function (/*add necessary arguments*/){
 		// use the histogram update() function with the value popped from the histogram buffer
 		// go back to a (i assume read from histogram buffer)
 }
-int main(int argc, char *argv[]){
 
+FIFORequestChannel* createChannels(FIFORequestChannel* mainchan) {
+	Request nc (NEWCHAN_REQ_TYPE);
+	mainchan->cwrite(&nc, sizeof(nc));
+	char chanName[1024];
+	mainchan->cread(chanName, sizeof(chanName));
+	
+	FIFORequestChannel* newchan = new FIFORequestChannel(chanName, FIFORequestChannel::CLIENT_SIDE);
+	return newchan;
+}
+
+int main(int argc, char *argv[]){
 	int opt;
 	int p = 1;
 	double t = 0.0;
