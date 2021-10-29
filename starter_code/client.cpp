@@ -5,19 +5,59 @@
 #include <sys/wait.h>
 using namespace std;
 
-void patient_thread_function(/*add necessary arguments*/){
-    /* What will the patient threads do? */
+/* Where to create new channels for worker Threads
+- create all at once in main and pass each channel as an argument to the worker function
+- could create a new channel at the beginning of the worker func, and call quit once done
+*/
+
+// Parameters: Patient number | Request Buffer ref | 
+	  	// Number of requests n | other optional vals
+void patient_thread_function(int p, int n, BoundedBuffer* request_buffer){
+    /* What will the patient threads do? */ // just do ecg 1
+	// 1 thread per patient
+	// for each thread
+		// create a data packet (instance of DataReq class)
+		// push packet to request buffer
+		// repeat a&b for the first n timestamps
+	DataRequest d(p, 0.0, 1);
+	for (int i = 0; i < n; i++) {
+		// request_buffer->push(d, sizeof(DataRequest));
+		d.seconds += 0.004;
+	}
 }
 
-void worker_thread_function(/*add necessary arguments*/){
-    /*
-		Functionality of the worker threads	
-    */
+// Parameters: filename, filelenght, Req Buffer reference, buffer capacity
+void file_thread_function() {
+	// 1 thread if file transfer is requested
+	// for the 1 thread
+		// create a file request (instance of FileRequest with filename included)
+		// Push packet to request buffer
+		// Go back to a for all windows of the file
 }
+
+// Parameter: Request Buffer reference, Histogram Buffer reference
+void worker_thread_function(/*add necessary arguments*/){
+    // for each thread
+		// (a) read from request buffer
+		/* if a patient packet, then push response to histogram buffer buffer
+			and go back to (a)*/
+		// Else if file transfer, then write to file and go back to (a)
+		// else if quit message, then exit thread/function
+
+		// inside each if
+			// (a) send message through designated channel to server (cwrite)
+			// (b) receive response from server (cread)
+		// HINT: Server, process request has similar set-up
+		// fopen, fseek, 
+}
+
+// Param: Histogram Collection reference, Histogram Buffer reference, Optional
 void histogram_thread_function (/*add necessary arguments*/){
-    /*
-		Functionality of the histogram threads	
-    */
+	// as many threads as the -h flag
+	// for each thread
+		// read from histogram buffer
+		// use the histogram update() function with the value popped from the histogram buffer
+		// go back to a (i assume read from histogram buffer)
 }
 int main(int argc, char *argv[]){
 
@@ -58,6 +98,9 @@ int main(int argc, char *argv[]){
 	
 
 	/* Join all threads here */
+
+	// how to ensure quit is last
+	// join patient and worker thread to make sure they are done and then pass quit
     gettimeofday (&end, 0);
 
     // print the results and time difference
