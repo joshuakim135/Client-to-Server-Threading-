@@ -20,8 +20,10 @@ void patient_thread_function(int p, int n, BoundedBuffer* request_buffer){
 		// push packet to request buffer
 		// repeat a&b for the first n timestamps
 	DataRequest d(p, 0.0, 1);
+	
+	vector<char> data((char*)&d, (char*)&d + sizeof(DataRequest));
 	for (int i = 0; i < n; i++) {
-		// request_buffer->push(d, sizeof(DataRequest));
+		request_buffer->push(data, sizeof(DataRequest));
 		d.seconds += 0.004;
 	}
 }
