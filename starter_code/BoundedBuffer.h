@@ -33,7 +33,7 @@ public:
 		// follow the class lecture pseudocode
 		//1. Perform necessary waiting (by calling wait on the right semaphores and mutexes),
 		unique_lock<mutex> l(m);
-		ifSlot.wait(l, [this]{return q.size() < cap;});
+		ifSlot.wait(l, [this]{return q.size() < cap;}); // stays asleep unless q.size() is less than buffer capacity
 
 		//2. Push the data onto the queue
 		q.push(data);
@@ -46,7 +46,7 @@ public:
 	vector<char> pop(char* buffer, int bufferCapacity){
 		//1. Wait using the correct sync variables
 		unique_lock<mutex> l(m);
-		ifData.wait(l, [this]{return q.size() > 0;});
+		ifData.wait(l, [this]{return q.size() > 0;}); // stays asleep until q.size() is greater than 0, basically if it has things to pop
 
 		//2. Pop the front item of the queue.
 		vector<char> data = q.front();
