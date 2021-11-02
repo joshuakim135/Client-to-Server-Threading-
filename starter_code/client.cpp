@@ -92,14 +92,27 @@ int main(int argc, char *argv[]){
 	FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
 	BoundedBuffer request_buffer(b);
 	HistogramCollection hc;
-
+	// in main
+	// 1. Create a Histogram Collection
+	// 2. create p histograms
+	// 2. Call the HistogramCollection's add function for references of said p histograms
+	// 4. Use HistogramCollection for all use
 
 	struct timeval start, end;
     gettimeofday (&start, 0);
+	
+	// 1. Create all your threads
+	// 2. Join patient and file threads
+	// 3. push w quit messages to req buffer
+	// 4. join worker threads
+	// 5. join histogram threads
 
     /* Start all threads here */
-	
-
+	// create thread
+	// - thread<thread_name> (function_name, function_parameter_1, function_parameter_2, etc..)
+	// joining thread
+	// - <thread_name>.join();
+	// - waits for thread to finish before cont. code
 	/* Join all threads here */
 
 	// how to ensure quit is last

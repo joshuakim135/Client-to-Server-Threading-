@@ -8,6 +8,8 @@ class HistogramCollection{
 private:
     vector<Histogram*> hists; //collection of histograms
 public:
+    // Create an update() function that allows for a value parameter v and a pateint number parameter p
+    //      - Will tell HistogramCollection to run update(v) for the histogram index p-1
     HistogramCollection (){
         hists.clear();
     }
