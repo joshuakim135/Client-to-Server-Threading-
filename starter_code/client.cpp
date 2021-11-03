@@ -20,13 +20,28 @@ void patient_thread_function(int p, int n, BoundedBuffer* request_buffer){
 }
 
 // Parameters: filename, filelenght, Req Buffer reference, buffer capacity
-void file_thread_function(string filename, size_t fileSize, BoundedBuffer* request_buffer, size_t capacity) {
+void file_thread_function(string filename, BoundedBuffer* request_buffer, FIFORequestChannel* chan, size_t capacity) {
 	// 1 thread if file transfer is requested
 	// for the 1 thread
 		// create a file request (instance of FileRequest with filename included)
 		// Push packet to request buffer
 		// Go back to a for all windows of the file
-	
+	string filepath = "received/" + filename;
+	int len = sizeof(FileRequest) + filename.size() + 1;
+	char buffer[len];
+	FileRequest fr(0,0);
+	memcpy(buffer, &fr, sizeof(FileRequest));
+	strcpy(buffer + sizeof(FileRequest), filename.c_str());
+	chan->cwrite(buffer, len);
+	int64 filelen;
+	chan->cread(&filelen, sizeof(int64));
+
+	FILE* f = fopen(filepath.c_str(), "w");
+	fseek(f, filelen, SEEK_SET);
+
+	FileRequest* frp = (FileRequest*)buffer;
+	int64 rem = filelen;
+	// FileRequest* f = (FileRequest*) buffer;
 }
 
 // Parameter: Request Buffer reference, Histogram Buffer reference
