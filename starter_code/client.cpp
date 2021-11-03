@@ -36,15 +36,16 @@ void worker_thread_function(BoundedBuffer* request_buffer, HistogramCollection* 
 
 	while(true) {
 		request_buffer->pop(buffer, 1024);
+
 		// if patient packet, push response to histogram bufer
-		if (*buffer == DATA_REQ_TYPE) {
+		if ((*(REQUEST_TYPE_PREFIX*)buffer) == DATA_REQ_TYPE) {
 			chan->cwrite(buffer, sizeof(DataRequest));
 			chan->cread(&ecgVal, sizeof(double));
 			hc->update(((DataRequest*)buffer)->person, ecgVal);
 		}
 		
 		// if file transfer, write to file
-		else if (*buffer == FILE_REQ_TYPE) {
+		else if ((*(REQUEST_TYPE_PREFIX*)buffer) == FILE_REQ_TYPE) {
 			FileRequest* fr = (FileRequest*)buffer;
 			string filename = (char*)(fr + 1);
 			chan->cwrite(buffer, sizeof(FileRequest) + filename.size() + 1);
@@ -58,8 +59,8 @@ void worker_thread_function(BoundedBuffer* request_buffer, HistogramCollection* 
 		}
 
 		// if quit exit thread/function
-		else if (*buffer == QUIT_REQ_TYPE) {
-			chan->cwrite(buffer, sizeof(buffer)); // i dunno if size is correct
+		else if ((*(REQUEST_TYPE_PREFIX*)buffer) == QUIT_REQ_TYPE) {
+			chan->cwrite(buffer, sizeof(REQUEST_TYPE_PREFIX)); // i dunno if size is correct
 			delete chan;
 			break;
 		}
