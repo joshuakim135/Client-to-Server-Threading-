@@ -26,6 +26,7 @@ void file_thread_function(string filename, size_t fileSize, BoundedBuffer* reque
 		// create a file request (instance of FileRequest with filename included)
 		// Push packet to request buffer
 		// Go back to a for all windows of the file
+	
 }
 
 // Parameter: Request Buffer reference, Histogram Buffer reference
@@ -88,14 +89,36 @@ FIFORequestChannel* createChannels(FIFORequestChannel* mainchan) {
 
 int main(int argc, char *argv[]){
 	int opt;
-	int p = 1;
+	int n = 100; // number of requests per patient
+	int p = 1; // number of patients from 1->15
+	int w = 100; // default number of worker threads
+	int b = MAX_MESSAGE; // capacity of request buffer
+	int m = MAX_MESSAGE; // capacity of message buffer
+	int h = 100; // number of histogram threads
 	double t = 0.0;
 	int e = 1;
 	string filename = "";
 	int b = 10; // size of bounded buffer, note: this is different from another variable buffercapacity/m
 	// take all the arguments first because some of these may go to the server
-	while ((opt = getopt(argc, argv, "f:")) != -1) {
+	// n-> # of req per patient, p-> # of patients, w-> # worker threads, b-> request buffer cap
+	// m-> receive message buffer cap, f-> file
+	while ((opt = getopt(argc, argv, "n:p:w:b:m:f:")) != -1) {
 		switch (opt) {
+			case 'n':
+				n = atoi(optarg);
+				break;
+			case 'p':
+				p = atoi(optarg);
+				break;
+			case 'w':
+				w = atoi(optarg);
+				break;
+			case 'b':
+				b = atoi(optarg);
+				break;
+			case 'm':
+				m = atoi(optarg);
+				break;
 			case 'f':
 				filename = optarg;
 				break;
