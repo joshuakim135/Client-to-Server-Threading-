@@ -20,7 +20,7 @@ void patient_thread_function(int p, int n, BoundedBuffer* request_buffer){
 }
 
 // Parameters: filename, filelenght, Req Buffer reference, buffer capacity
-void file_thread_function() {
+void file_thread_function(string filename, size_t fileSize, BoundedBuffer* request_buffer, size_t capacity) {
 	// 1 thread if file transfer is requested
 	// for the 1 thread
 		// create a file request (instance of FileRequest with filename included)
@@ -65,18 +65,6 @@ void worker_thread_function(BoundedBuffer* request_buffer, HistogramCollection* 
 			break;
 		}
 	}
-    // for each thread
-		// (a) read from request buffer
-		/* if a patient packet, then push response to histogram buffer buffer
-			and go back to (a)*/
-		// Else if file transfer, then write to file and go back to (a)
-		// else if quit message, then exit thread/function
-
-		// inside each if
-			// (a) send message through designated channel to server (cwrite)
-			// (b) receive response from server (cread)
-		// HINT: Server, process request has similar set-up
-		// fopen, fseek, 
 }
 
 // Param: Histogram Collection reference, Histogram Buffer reference, Optional
