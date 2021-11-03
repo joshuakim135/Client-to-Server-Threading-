@@ -38,9 +38,9 @@ void worker_thread_function(BoundedBuffer* request_buffer, HistogramCollection* 
 		request_buffer->pop(buffer, 1024);
 		// if patient packet, push response to histogram bufer
 		if (*buffer == DATA_REQ_TYPE) {
-			chan->cwrite(buffer, sizeof(DATA_REQ_TYPE));
+			chan->cwrite(buffer, sizeof(DataRequest));
 			chan->cread(&ecgVal, sizeof(double));
-			// PUSH TO HISTOGRAM HERE
+			hc->update(((DataRequest*)buffer)->person, ecgVal);
 		}
 		
 		// if file transfer, write to file
