@@ -29,7 +29,41 @@ void file_thread_function() {
 }
 
 // Parameter: Request Buffer reference, Histogram Buffer reference
-void worker_thread_function(/*add necessary arguments*/){
+void worker_thread_function(BoundedBuffer* request_buffer, HistogramCollection* hc, FIFORequestChannel* chan) {
+	char buffer[1024];
+	char recevBuffer[MAX_MESSAGE]; // change MAX_MESSAGE to int val from user input
+	double ecgVal = 0.0;
+
+	while(true) {
+		request_buffer->pop(buffer, 1024);
+		// if patient packet, push response to histogram bufer
+		if (*buffer == DATA_REQ_TYPE) {
+			chan->cwrite(buffer, sizeof(DATA_REQ_TYPE));
+			chan->cread(&ecgVal, sizeof(double));
+			// PUSH TO HISTOGRAM HERE
+		}
+		
+		// if file transfer, write to file
+		else if (*buffer == FILE_REQ_TYPE) {
+			FileRequest* fr = (FileRequest*)buffer;
+			string filename = (char*)(fr + 1);
+			chan->cwrite(buffer, sizeof(FileRequest) + filename.size() + 1);
+			chan->cread(recevBuffer, sizeof(MAX_MESSAGE));
+
+			string filename2 = "receive/" + filename;
+			FILE* f = fopen(filename2.c_str(), "r+");
+			fseek(f, fr->offset, SEEK_SET);
+			fwrite(recevBuffer, 1, fr->length, f);
+			fclose(f);
+		}
+
+		// if quit exit thread/function
+		else if (*buffer == QUIT_REQ_TYPE) {
+			chan->cwrite(buffer, sizeof(buffer)); // i dunno if size is correct
+			delete chan;
+			break;
+		}
+	}
     // for each thread
 		// (a) read from request buffer
 		/* if a patient packet, then push response to histogram buffer buffer
@@ -100,7 +134,7 @@ int main(int argc, char *argv[]){
 
 	struct timeval start, end;
     gettimeofday (&start, 0);
-	
+
 	// 1. Create all your threads
 	// 2. Join patient and file threads
 	// 3. push w quit messages to req buffer
