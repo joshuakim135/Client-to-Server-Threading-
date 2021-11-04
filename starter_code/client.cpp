@@ -41,7 +41,26 @@ void file_thread_function(string filename, BoundedBuffer* request_buffer, FIFORe
 
 	FileRequest* frp = (FileRequest*)buffer;
 	int64 rem = filelen;
-	// FileRequest* f = (FileRequest*) buffer;
+	/*
+	int bytesLeft = f->length;
+	// char recvBuf [f->length];
+	while (bytesLeft != 0) {
+		char recvBuf[min(f->length, MAX_PIPE_SIZE)];
+		int bytesRead = chan.cread(recvBuf, bytesLeft);
+		of.write(recvBuf, min(bytesLeft, MAX_PIPE_SIZE));
+		std::cout << "bytesRead: " << bytesRead << endl;
+		f->offset += bytesRead;
+		bytesLeft -= bytesRead;
+		std::cout << "bytesLeft: " << bytesLeft << endl;
+	}
+	*/
+	while (rem != 0) {
+		frp->length = min(rem, (int64)capacity);
+		vector<char> data((char*)&buffer, (char*)&buffer + sizeof(DataRequest));
+		request_buffer->push(data, len);
+		frp->offset += frp->length;
+		rem -= frp->length;
+	}
 }
 
 // Parameter: Request Buffer reference, Histogram Buffer reference
