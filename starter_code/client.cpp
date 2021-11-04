@@ -173,7 +173,7 @@ int main(int argc, char *argv[]){
 	BoundedBuffer request_buffer(b);
 	HistogramCollection hc;
 	for (int i = 0; i < p; i++) { // initialize histogram collection
-		Histogram* h = new Histogram(10, -8.0, 8.0);
+		Histogram* h = new Histogram(10, -2.0, 2.0);
 		hc.add(h);
 	}
 
