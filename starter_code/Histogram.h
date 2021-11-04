@@ -2,6 +2,7 @@
 #define Histogram_h
 
 #include <queue>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <unordered_map>

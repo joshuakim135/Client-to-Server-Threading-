@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <queue>
 #include <string>
+#include <mutex>
 #include "Semaphore.h"
 
 using namespace std;
@@ -18,20 +19,14 @@ private:
 	2. The other alternative is keeping a char* for the sequence and an integer length (i.e., the items can be of variable length), which is more complicated.*/
 	// add necessary synchronization variables (e.g., sempahores, mutexes) and variables
 	mutex m;
-
 	condition_variable cv_bufferDataExists;
 	condition_variable cv_bufferSpaceExists;
 
 public:
-	BoundedBuffer(int _cap){
-
-	}
-	~BoundedBuffer(){
-
-	}
+	BoundedBuffer(int _cap) : cap(_cap) {}
+	~BoundedBuffer(){}
 
 	void push(vector<char> data, int size) {
-		// follow the class lecture pseudocode
 		//1. Perform necessary waiting (by calling wait on the right semaphores and mutexes),
 		unique_lock<mutex> l(m);
 		cv_bufferSpaceExists.wait(l, [this]{return q.size() < cap;}); // stays asleep unless q.size() is less than buffer capacity

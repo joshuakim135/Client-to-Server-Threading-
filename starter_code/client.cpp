@@ -103,7 +103,7 @@ void worker_thread_function(BoundedBuffer* request_buffer, HistogramCollection* 
 }
 
 // Param: Histogram Collection reference, Histogram Buffer reference, Optional
-void histogram_thread_function (/*add necessary arguments*/){
+void histogram_thread_function (HistogramCollection* hc/*add necessary arguments*/){
 	// as many threads as the -h flag
 	// for each thread
 		// read from histogram buffer
@@ -172,11 +172,10 @@ int main(int argc, char *argv[]){
 	FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
 	BoundedBuffer request_buffer(b);
 	HistogramCollection hc;
-	// in main
-	// 1. Create a Histogram Collection
-	// 2. create p histograms
-	// 2. Call the HistogramCollection's add function for references of said p histograms
-	// 4. Use HistogramCollection for all use
+	for (int i = 0; i < p; i++) { // initialize histogram collection
+		Histogram* h = new Histogram(10, -8.0, 8.0);
+		hc.add(h);
+	}
 
 	struct timeval start, end;
     gettimeofday (&start, 0);
@@ -211,5 +210,4 @@ int main(int argc, char *argv[]){
 	// client waiting for the server process, which is the child, to terminate
 	wait(0);
 	cout << "Client process exited" << endl;
-
 }
