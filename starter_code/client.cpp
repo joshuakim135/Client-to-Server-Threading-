@@ -3,6 +3,8 @@
 #include "BoundedBuffer.h"
 #include "HistogramCollection.h"
 #include <sys/wait.h>
+#include <thread>
+#include <utility>
 
 using namespace std;
 
@@ -20,12 +22,7 @@ void patient_thread_function(int p, int n, BoundedBuffer* request_buffer){
 }
 
 // Parameters: filename, filelenght, Req Buffer reference, buffer capacity
-void file_thread_function(string filename, BoundedBuffer* request_buffer, FIFORequestChannel* chan, size_t capacity) {
-	// 1 thread if file transfer is requested
-	// for the 1 thread
-		// create a file request (instance of FileRequest with filename included)
-		// Push packet to request buffer
-		// Go back to a for all windows of the file
+void file_thread_function(string filename, BoundedBuffer* request_buffer, FIFORequestChannel* chan, size_t buffer_cap) {
 	string filepath = "received/" + filename;
 	int len = sizeof(FileRequest) + filename.size() + 1;
 	char buffer[len];
@@ -55,7 +52,7 @@ void file_thread_function(string filename, BoundedBuffer* request_buffer, FIFORe
 	}
 	*/
 	while (rem != 0) {
-		frp->length = min(rem, (int64)capacity);
+		frp->length = min(rem, (int64)buffer_cap);
 		vector<char> data((char*)&buffer, (char*)&buffer + sizeof(DataRequest));
 		request_buffer->push(data, len);
 		frp->offset += frp->length;
@@ -64,9 +61,9 @@ void file_thread_function(string filename, BoundedBuffer* request_buffer, FIFORe
 }
 
 // Parameter: Request Buffer reference, Histogram Buffer reference
-void worker_thread_function(BoundedBuffer* request_buffer, HistogramCollection* hc, FIFORequestChannel* chan) {
+void worker_thread_function(BoundedBuffer* request_buffer, BoundedBuffer* response_buffer, FIFORequestChannel* chan, HistogramCollection* hc, size_t buffer_cap) {
 	char buffer[1024];
-	char recevBuffer[MAX_MESSAGE]; // change MAX_MESSAGE to int val from user input
+	char recevBuffer[buffer_cap];
 	double ecgVal = 0.0;
 
 	while(true) {
@@ -75,8 +72,11 @@ void worker_thread_function(BoundedBuffer* request_buffer, HistogramCollection* 
 		// if patient packet, push response to histogram bufer
 		if ((*(REQUEST_TYPE_PREFIX*)buffer) == DATA_REQ_TYPE) {
 			chan->cwrite(buffer, sizeof(DataRequest));
-			chan->cread(&ecgVal, sizeof(double));
+			chan->cread(&ecgVal, sizeof(double)); // response_buffer instead of ecgVal
+			// pair<int, double> peVal = make_pair(((DataRequest*)buffer)->person, ecgVal);
 			hc->update(((DataRequest*)buffer)->person, ecgVal);
+			// vector<char> data((char*)&response_buffer, (char*)&response_buffer + sizeof(DataRequest));
+			// response_buffer->push(data, sizeof(DataRequest));
 		}
 		
 		// if file transfer, write to file
@@ -84,7 +84,7 @@ void worker_thread_function(BoundedBuffer* request_buffer, HistogramCollection* 
 			FileRequest* fr = (FileRequest*)buffer;
 			string filename = (char*)(fr + 1);
 			chan->cwrite(buffer, sizeof(FileRequest) + filename.size() + 1);
-			chan->cread(recevBuffer, sizeof(MAX_MESSAGE));
+			chan->cread(recevBuffer, sizeof(buffer_cap));
 
 			string filename2 = "receive/" + filename;
 			FILE* f = fopen(filename2.c_str(), "r+");
@@ -103,12 +103,15 @@ void worker_thread_function(BoundedBuffer* request_buffer, HistogramCollection* 
 }
 
 // Param: Histogram Collection reference, Histogram Buffer reference, Optional
-void histogram_thread_function (HistogramCollection* hc/*add necessary arguments*/){
-	// as many threads as the -h flag
-	// for each thread
-		// read from histogram buffer
-		// use the histogram update() function with the value popped from the histogram buffer
-		// go back to a (i assume read from histogram buffer)
+void histogram_thread_function (HistogramCollection* hc, BoundedBuffer* response_buffer){
+	char buffer[1024];
+	char recevBuffer[MAX_MESSAGE]; // change MAX_MESSAGE to int val from user input
+	double ecgVal = 0.0;
+
+	while(true) {
+		response_buffer->pop(buffer, 1024);
+		hc->update(((DataRequest*)buffer)->person, ecgVal);
+	}
 }
 
 FIFORequestChannel* createChannels(FIFORequestChannel* mainchan) {
@@ -132,7 +135,7 @@ int main(int argc, char *argv[]){
 	double t = 0.0;
 	int e = 1;
 	string filename = "";
-	int b = 10; // size of bounded buffer, note: this is different from another variable buffercapacity/m
+	bool reqFile = false;
 	// take all the arguments first because some of these may go to the server
 	// n-> # of req per patient, p-> # of patients, w-> # worker threads, b-> request buffer cap
 	// m-> receive message buffer cap, f-> file
@@ -155,6 +158,7 @@ int main(int argc, char *argv[]){
 				break;
 			case 'f':
 				filename = optarg;
+				reqFile = true;
 				break;
 		}
 	}
@@ -171,12 +175,20 @@ int main(int argc, char *argv[]){
 	}
 	FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
 	BoundedBuffer request_buffer(b);
+	BoundedBuffer response_buffer(b);
 	HistogramCollection hc;
+
 	for (int i = 0; i < p; i++) { // initialize histogram collection
 		Histogram* h = new Histogram(10, -2.0, 2.0);
 		hc.add(h);
 	}
 
+	// worker channels = # worker threads
+	FIFORequestChannel* workerChans[w];
+	for (int i = 0; i < w; i++) {
+		workerChans[i] = createChannels(&chan);
+	}
+	
 	struct timeval start, end;
     gettimeofday (&start, 0);
 
@@ -186,13 +198,39 @@ int main(int argc, char *argv[]){
 	// 4. join worker threads
 	// 5. join histogram threads
 
-    /* Start all threads here */
-	// create thread
-	// - thread<thread_name> (function_name, function_parameter_1, function_parameter_2, etc..)
-	// joining thread
-	// - <thread_name>.join();
-	// - waits for thread to finish before cont. code
-	/* Join all threads here */
+	// create all threads
+	// patient threads
+	thread patient[p];
+	for (int i = 0; i < p; i++) {
+		patient[i] = thread(patient_thread_function, i+1, n, &request_buffer);
+	}
+
+	// worker threads
+	thread workers[w];
+	for (size_t i = 0; i < w; i++) {
+		workers[i] = thread(worker_thread_function, &request_buffer, &response_buffer, workerChans[i], &hc, m);
+	}
+
+	if (reqFile) {
+		cout << "File Request\n" << endl;
+		thread fileThread(file_thread_function, filename, &request_buffer, &chan, m);
+		// join patient and file threads
+		fileThread.join();
+	} else {
+		// join patient and file threads
+		for (size_t i = 0; i < p; i++) {
+			patient[i].join();
+		}
+	}
+
+	// push w quit messages to req buffer
+	for (size_t i = 0; i < w; i++) {
+		REQUEST_TYPE_PREFIX rtp = QUIT_REQ_TYPE;
+	}
+
+	for (int i = 0; i < w; i++) {
+		
+	}
 
 	// how to ensure quit is last
 	// join patient and worker thread to make sure they are done and then pass quit

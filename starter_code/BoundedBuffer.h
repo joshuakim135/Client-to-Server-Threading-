@@ -6,6 +6,7 @@
 #include <string>
 #include <mutex>
 #include "Semaphore.h"
+#include <utility>
 
 using namespace std;
 
@@ -21,6 +22,7 @@ private:
 	mutex m;
 	condition_variable cv_bufferDataExists;
 	condition_variable cv_bufferSpaceExists;
+	queue<vector<pair<int, double>>> q2;
 
 public:
 	BoundedBuffer(int _cap) : cap(_cap) {}
