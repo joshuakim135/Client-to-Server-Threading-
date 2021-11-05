@@ -22,13 +22,31 @@ private:
 	mutex m;
 	condition_variable cv_bufferDataExists;
 	condition_variable cv_bufferSpaceExists;
-	queue<vector<pair<int, double>>> q2;
+	Semaphore* emptyslots;
+	Semaphore* fullslots;
+	Semaphore* mt;
+	int items;
 
 public:
-	BoundedBuffer(int _cap) : cap(_cap) {}
-	~BoundedBuffer(){}
+	BoundedBuffer(int _cap) : cap(_cap) {
+		emptyslots = new Semaphore(_cap);
+		fullslots = new Semaphore(0);
+		mt = new Semaphore(1);
+		items = 0;
+	}
+	~BoundedBuffer(){
+		delete emptyslots;
+		delete fullslots;
+	}
 
-	void push(vector<char> data, int size) {
+	void push(vector<char> data) {
+		emptyslots->P();
+		mt->P();
+		q.push(data);
+		items += data.size();
+		mt->V();
+		fullslots->V();
+		/*
 		//1. Perform necessary waiting (by calling wait on the right semaphores and mutexes),
 		unique_lock<mutex> l(m);
 		cv_bufferSpaceExists.wait(l, [this]{return q.size() < cap;}); // stays asleep unless q.size() is less than buffer capacity
@@ -39,9 +57,18 @@ public:
 		//3. Do necessary unlocking and notification
 		l.unlock();
 		cv_bufferDataExists.notify_all();
+		*/
 	}
 
-	vector<char> pop(char* buffer, int bufferCapacity){
+	vector<char> pop(){
+		fullslots->P();
+		mt->P();
+		vector<char> data = q.front();
+		q.pop();
+		items -= data.size();
+		mt->V();
+		emptyslots->V();
+		/*
 		//1. Wait using the correct sync variables
 		unique_lock<mutex> l(m);
 		cv_bufferDataExists.wait(l, [this]{return q.size() > 0;});
@@ -56,6 +83,7 @@ public:
 
 		//4. Return the popped vector
 		return data;
+		*/
 	}
 };
 
