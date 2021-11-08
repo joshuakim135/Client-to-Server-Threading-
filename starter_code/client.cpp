@@ -76,7 +76,7 @@ void file_thread_function(string filename, BoundedBuffer* request_buffer, FIFORe
 }
 
 // Parameter: Request Buffer reference, Histogram Buffer reference
-void worker_thread_function(BoundedBuffer* request_buffer, BoundedBuffer* response_buffer, FIFORequestChannel* chan, size_t buffer_cap, string filename) {
+void worker_thread_function(BoundedBuffer* request_buffer, BoundedBuffer* response_buffer, FIFORequestChannel* chan, size_t buffer_cap) {
 	char response[buffer_cap];
 	while(true) {
 		vector<char> req = request_buffer->pop();
@@ -235,8 +235,10 @@ int main(int argc, char *argv[]){
 
 	// 1. create all threads
 	thread patient[p]; // patient threads
-	for (int i = 0; i < p; i++) {
-		patient[i] = thread(patient_thread_function, i+1, n, &request_buffer);
+	if (!reqFile) {
+		for (int i = 0; i < p; i++) {
+			patient[i] = thread(patient_thread_function, i+1, n, &request_buffer);
+		}
 	}
 	thread workers[w]; // worker threads
 	for (size_t i = 0; i < w; i++) {
@@ -246,6 +248,7 @@ int main(int argc, char *argv[]){
 	for (size_t i = 0; i < h; i++) {
 		histograms[i] = thread(histogram_thread_function, &hc, &response_buffer);
 	}
+	
 	if (reqFile) { // file threads if necessary
 		std::cout << "File Request\n" << endl;
 		thread fileThread(file_thread_function, filename, &request_buffer, &chan, m);
@@ -264,15 +267,16 @@ int main(int argc, char *argv[]){
 		vector<char> quitmsg((char*)&rtp, ((char*)&rtp) + sizeof(rtp));
 		request_buffer.push(quitmsg);
 	}
-
+	
 	// 4/5. join worker threads, join histogram threads
 	for (int i = 0; i < w; i++) {
 		workers[i].join();
 	}
+	
 	for (int i = 0; i < h; i++) {
 		histograms[i].join();
 	}
-
+	
     gettimeofday (&end, 0);
 
     // print the results and time difference

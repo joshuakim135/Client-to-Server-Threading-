@@ -19,9 +19,11 @@ private:
 	1. An STL std::string cannot keep binary/non-printables
 	2. The other alternative is keeping a char* for the sequence and an integer length (i.e., the items can be of variable length), which is more complicated.*/
 	// add necessary synchronization variables (e.g., sempahores, mutexes) and variables
+	/*
 	mutex m;
 	condition_variable cv_bufferDataExists;
 	condition_variable cv_bufferSpaceExists;
+	*/
 	Semaphore* emptyslots;
 	Semaphore* fullslots;
 	Semaphore* mt;
