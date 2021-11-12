@@ -57,6 +57,7 @@ void worker_thread_function(BoundedBuffer* requestBuff, BoundedBuffer* respondBu
 		Request* m = (Request*)request;
 		
 		if (m->getType() == DATA_REQ_TYPE) {
+			/*
 			DataRequest* dataR = (DataRequest*) m;
 			
 			chan->cwrite(dataR, sizeof(DataRequest));
@@ -65,6 +66,14 @@ void worker_thread_function(BoundedBuffer* requestBuff, BoundedBuffer* respondBu
 			chan->cread(&ecgVal, sizeof(double));
 			
 			getResponse r {p, ecgVal};
+			vector<char> data ((char*)&r, ((char*)&r) + sizeof(r));
+			respondBuff->push(data);
+			*/
+			DataRequest* dataR = (DataRequest*) m;
+			chan->cwrite(dataR, sizeof(DataRequest));
+			double ecg;
+			chan->cread(&ecg, sizeof(double));
+			getResponse r{dataR->person, ecg};
 			vector<char> data ((char*)&r, ((char*)&r) + sizeof(r));
 			respondBuff->push(data);
 		} else if (m->getType() == FILE_REQ_TYPE) {
@@ -77,6 +86,7 @@ void worker_thread_function(BoundedBuffer* requestBuff, BoundedBuffer* respondBu
 			fwrite(response, 1, fr->length, fp);
 			fclose(fp);
 		} else if (m->getType() == QUIT_REQ_TYPE){
+			delete chan;
 			break;
 		}
 	}
@@ -98,7 +108,7 @@ int main(int argc, char *argv[]){
 	int n = 100; // number of requests per patient
 	int p = 1; // number of patients from 1->15
 	int w = 10; // default number of worker threads
-	int b = 20; // capacity of request buffer
+	int b = 1024; // capacity of request buffer
 	int m = MAX_MESSAGE; // capacity of message buffer
 	int h = 15; // number of histogram threads
 	string filename = "";
@@ -151,6 +161,9 @@ int main(int argc, char *argv[]){
 	BoundedBuffer request_buffer(b);
 	BoundedBuffer response_buffer(b);
 	HistogramCollection hc;
+
+	struct timeval start, end;
+    gettimeofday (&start, 0);
 
 	
 	for (int i = 0; i < p; i++) { // initialize histogram collection
