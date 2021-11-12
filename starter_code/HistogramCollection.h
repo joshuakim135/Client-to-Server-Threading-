@@ -7,7 +7,6 @@ using namespace std;
 class HistogramCollection{
 private:
     vector<Histogram*> hists; //collection of histograms
-
 public:
     HistogramCollection (){
         hists.clear();
@@ -21,10 +20,6 @@ public:
         hists.push_back (h);
     }
     
-    void update(int Patient, double V){
-        hists[Patient-1] ->update(V);
-    }
-
     void print (){
         int nhists = hists.size();
         if (nhists <= 0){
@@ -62,5 +57,12 @@ public:
             cout << setw(5) << sum [j] << " "; 
         }
         cout << endl;
-    }  
+    }
+
+    void update(int p, double e)
+    {
+        hists[p-1]->update(e);
+    }
+
+    
 };

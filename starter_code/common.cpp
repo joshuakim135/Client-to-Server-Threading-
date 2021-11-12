@@ -23,7 +23,8 @@ vector<string> split (string line, char separator){
 	return result;
 }
 
-/*__int64_t get_file_size (string filename){
+/*
+__int64_t get_file_size (string filename){
     struct stat buf;
     int fd = open (filename.c_str (), O_RDONLY);
     fstat(fd, &buf);
@@ -31,6 +32,7 @@ vector<string> split (string line, char separator){
     close (fd);
     return size;
 }*/
+
 bool isValidResponse(void* r){
     return (((Request*)r)->getType() != UNKNOWN_REQ_TYPE);
 }

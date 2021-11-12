@@ -2,11 +2,12 @@
 #define Histogram_h
 
 #include <queue>
-#include <mutex>
 #include <string>
 #include <vector>
 #include <unordered_map>
 #include <pthread.h>
+#include <mutex>
+
 using namespace std;
 
 class Histogram {
@@ -15,11 +16,10 @@ private:
 	int nbins;
 	double start, end;
 	mutex m;
-
 public:
     Histogram(int, double, double);
 	~Histogram();
-	void update (double ); 		// updates the histogram
+	void update (double); 		// updates the histogram
     vector<int> get_hist();		// prints the histogram
     int size ();
 	vector<double> get_range ();

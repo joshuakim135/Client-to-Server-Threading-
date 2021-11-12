@@ -74,7 +74,7 @@ public:
 void EXITONERROR(string msg);
 vector<string> split (string line, char separator);
 //int64 get_file_size (string filename);
-
+__int64_t get_file_size (string filename);
 bool isValidResponse(void* r);
 
 #endif
