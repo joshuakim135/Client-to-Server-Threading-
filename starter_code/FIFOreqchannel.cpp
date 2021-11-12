@@ -46,4 +46,3 @@ int FIFORequestChannel::cread(void* msgbuf, int bufcapacity){
 int FIFORequestChannel::cwrite(void* msgbuf, int len){
 	return write (wfd, msgbuf, len);
 }
-

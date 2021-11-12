@@ -7,13 +7,8 @@ using namespace std;
 class HistogramCollection{
 private:
     vector<Histogram*> hists; //collection of histograms
-public:
-    // Create an update() function that allows for a value parameter v and a pateint number parameter p
-    // Will tell HistogramCollection to run update(v) for the histogram index p-1
-    void update(double v, int p) {
-        hists[p-1]->update(v);
-    }
 
+public:
     HistogramCollection (){
         hists.clear();
     }
@@ -26,6 +21,10 @@ public:
         hists.push_back (h);
     }
     
+    void update(int Patient, double V){
+        hists[Patient-1] ->update(V);
+    }
+
     void print (){
         int nhists = hists.size();
         if (nhists <= 0){
@@ -63,9 +62,5 @@ public:
             cout << setw(5) << sum [j] << " "; 
         }
         cout << endl;
-    }
-
-    
-
-    
+    }  
 };

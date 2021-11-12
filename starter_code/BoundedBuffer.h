@@ -6,7 +6,6 @@
 #include <string>
 #include <mutex>
 #include "Semaphore.h"
-#include <utility>
 
 using namespace std;
 
@@ -19,73 +18,30 @@ private:
 	1. An STL std::string cannot keep binary/non-printables
 	2. The other alternative is keeping a char* for the sequence and an integer length (i.e., the items can be of variable length), which is more complicated.*/
 	// add necessary synchronization variables (e.g., sempahores, mutexes) and variables
-	/*
-	mutex m;
-	condition_variable cv_bufferDataExists;
-	condition_variable cv_bufferSpaceExists;
-	*/
-	Semaphore* emptyslots;
-	Semaphore* fullslots;
-	Semaphore* mt;
-	int items;
+	Semaphore emptyslots;
+	Semaphore fullslots;
+	Semaphore mt;
 
 public:
-	BoundedBuffer(int _cap) : cap(_cap) {
-		emptyslots = new Semaphore(_cap);
-		fullslots = new Semaphore(0);
-		mt = new Semaphore(1);
-		items = 0;
-	}
-	~BoundedBuffer(){
-		delete emptyslots;
-		delete fullslots;
-	}
+	BoundedBuffer(int _cap) : cap(_cap), emptyslots(_cap), fullslots(0), mt(1), q() {}
+	~BoundedBuffer(){}
 
 	void push(vector<char> data) {
-		emptyslots->P();
-		mt->P();
+		emptyslots.P();
+		mt.P();
 		q.push(data);
-		items += data.size();
-		mt->V();
-		fullslots->V();
-		/*
-		//1. Perform necessary waiting (by calling wait on the right semaphores and mutexes),
-		unique_lock<mutex> l(m);
-		cv_bufferSpaceExists.wait(l, [this]{return q.size() < cap;}); // stays asleep unless q.size() is less than buffer capacity
-		
-		//2. Push the data onto the queue
-		q.push(data);
-		
-		//3. Do necessary unlocking and notification
-		l.unlock();
-		cv_bufferDataExists.notify_all();
-		*/
+		mt.V();
+		fullslots.V();
 	}
 
 	vector<char> pop(){
-		fullslots->P();
-		mt->P();
+		fullslots.P();
+		mt.P();
 		vector<char> data = q.front();
 		q.pop();
-		items -= data.size();
-		mt->V();
-		emptyslots->V();
-		/*
-		//1. Wait using the correct sync variables
-		unique_lock<mutex> l(m);
-		cv_bufferDataExists.wait(l, [this]{return q.size() > 0;});
-
-		//2. Pop the front item of the queue and save to var
-		vector<char> data = q.front();
-		q.pop();
-		
-		//3. Unlock and notify using the right sync variables
-		l.unlock();
-		cv_bufferSpaceExists.notify_all();
-
-		//4. Return the popped vector
+		mt.V();
+		emptyslots.V();
 		return data;
-		*/
 	}
 };
 

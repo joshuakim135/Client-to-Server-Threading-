@@ -4,92 +4,160 @@
 #include "HistogramCollection.h"
 #include <sys/wait.h>
 #include <thread>
+#include <utility>
 
 using namespace std;
 
-struct getResponse{
-	int patient;
-	double ecgValue;
-};
+void patient_thread_function(int p, int n, BoundedBuffer* request_buffer){
+	// create a data request
+	DataRequest d(p, 0, 1);
 
-void patient_thread_function(int patientNum, int size, BoundedBuffer* request_buffer){
-	DataRequest d(patientNum, 0, 1);
-	
-	for (int i = 0; i < size;i++){
+	// push data to buffer
+	for (int i = 0; i < n; i++) {
 		vector<char> data((char*)&d, (char*)&d + sizeof(DataRequest));
 		request_buffer->push(data);
-		d.seconds = d.seconds + 0.004;
+		d.seconds += 0.004;
 	}
 }
 
-void file_thread(string fileName, BoundedBuffer* requestBuff, FIFORequestChannel* chan, size_t bufferCap){
-	string filepath = "received/" + fileName;
+struct Response {
+	int p;
+	double ecg;
+};
+
+// Parameters: filename, filelenght, Req Buffer reference, buffer capacity
+void file_thread_function(string filename, BoundedBuffer* request_buffer, FIFORequestChannel* chan, size_t buffer_cap) {
+	string filepath = "received/" + filename;
 	FILE* fp = fopen(filepath.c_str(), "w");
 	fclose(fp);
-	int64 remainder;
-	int length = sizeof(FileRequest) + fileName.size() + 1;
-	char buffer[length];
 
-	FileRequest* fileR = new (buffer)FileRequest (0,0);
-	strcpy(buffer + sizeof(FileRequest), fileName.c_str());
+	int len = sizeof(FileRequest) + filename.size() + 1;
+	char buffer[len];
+	FileRequest* fr = new (buffer)FileRequest (0,0);
+	strcpy(buffer+sizeof(FileRequest), filename.c_str());
+	int64 rem;
+	chan->cread(&rem, sizeof(rem));
 
-	chan->cread(&remainder , sizeof(remainder));
-
-	int szBuffer = sizeof(buffer);
-	while (remainder) {
-		fileR->length = min(remainder, (int64)bufferCap);
-		vector<char> data(buffer, buffer+szBuffer);
-		requestBuff->push(data);
-
-		remainder = remainder-fileR->length;
-		remainder -= fileR->length;
-		fileR->offset = fileR->offset+fileR->length;
+	while (rem) {
+		fr->length = min(rem, (int64)buffer_cap);
+		vector<char> data (buffer, buffer + sizeof(buffer));
+		request_buffer->push(data);
+		// rem = rem - fr->len;
+		rem -= fr->length;
+		fr->offset += fr->length;
 	}
+	
+	/*
+	string filepath = "received/" + filename;
+	int len = sizeof(FileRequest) + filename.size() + 1;
+	char buffer[len];
+	FileRequest fr(0,0);
+	memcpy(buffer, &fr, sizeof(FileRequest));
+	strcpy(buffer + sizeof(FileRequest), filename.c_str());
+	chan->cwrite(buffer, len);
+	int64 filelen;
+	chan->cread(&filelen, sizeof(int64));
+
+	FILE* f = fopen(filepath.c_str(), "w");
+	fseek(f, filelen, SEEK_SET);
+
+	FileRequest* frp = (FileRequest*)buffer;
+	int64 rem = filelen;
+
+	while (rem != 0) {
+		frp->length = min(rem, (int64)buffer_cap);
+		vector<char> data((char*)&buffer, (char*)&buffer + sizeof(DataRequest));
+		request_buffer->push(data);
+		frp->offset += frp->length;
+		rem -= frp->length;
+	}
+	*/
 }
 
-void worker_thread_function(BoundedBuffer* requestBuff, BoundedBuffer* respondBuff, FIFORequestChannel* chan, size_t bufferCap){
-	char response[bufferCap];
-	while (true) {
-		vector<char> req = requestBuff->pop();
-		char* request = (char*) req.data();
-
+// Parameter: Request Buffer reference, Histogram Buffer reference
+void worker_thread_function(BoundedBuffer* request_buffer, BoundedBuffer* response_buffer, FIFORequestChannel* chan, size_t buffer_cap) {
+	char response[buffer_cap];
+	while(true) {
+		vector<char> req = request_buffer->pop();
+		char* request = (char*)req.data();
 		chan->cwrite(request, req.size());
 		Request* m = (Request*)request;
-		
 		if (m->getType() == DATA_REQ_TYPE) {
-			DataRequest* dataR = (DataRequest*) m;
-			
-			chan->cwrite(dataR, sizeof(DataRequest));
-			int p = ((DataRequest*) request)->person;
+			int p = ((DataRequest*)request)->person;
 			double ecgVal = 0;
 			chan->cread(&ecgVal, sizeof(double));
-			
-			getResponse r {p, ecgVal};
+			Response r {p, ecgVal};
 			vector<char> data ((char*)&r, ((char*)&r) + sizeof(r));
-			respondBuff->push(data);
+			response_buffer->push(data);
 		} else if (m->getType() == FILE_REQ_TYPE) {
 			chan->cread(response, sizeof(response));
 			FileRequest* fr = (FileRequest*) request;
-			string file_name = (char*) (fr+1);
+			string file_name = (char*)(fr+1);
 			file_name = "received/" + file_name;
 			FILE* fp = fopen(file_name.c_str(), "r+");
-			fseek(fp, fr->offset, SEEK_SET);
+			fseek (fp, fr->offset, SEEK_SET);
 			fwrite(response, 1, fr->length, fp);
 			fclose(fp);
-		} else if (m->getType() == QUIT_REQ_TYPE){
+		} else if (m->getType() == QUIT_REQ_TYPE) {
 			break;
 		}
 	}
+	
+	/*
+	int fperson;
+	int rem;
+	int readSize;
+
+	while(true) {
+		vector<char> req = request_buffer->pop();
+		char* request = req.data();
+		REQUEST_TYPE_PREFIX m = *(REQUEST_TYPE_PREFIX*) request;
+		if (m == DATA_REQ_TYPE) {
+			DataRequest* dr = (DataRequest*)request;
+			double ecgVal;
+
+			chan->cwrite(&dr, sizeof(DataRequest));
+			chan->cread(&ecgVal, sizeof(double));
+
+			pair<int, double> pairData (dr->person, ecgVal);
+			vector<char> data((char*)&pairData, (char*)&pairData+sizeof(pair<int, double>));
+			response_buffer->push(data);
+		} else if(m == FILE_REQ_TYPE) {
+			FileRequest* fr = (FileRequest*) request;
+			string file_name = request + sizeof(FileRequest);
+			const int len = sizeof(FileRequest) + file_name.size() + 1;
+			chan->cwrite(request, len);
+			char buffer[buffer_cap];
+			
+			fperson = open(("./received/" + filename).c_str(), O_CREAT | O_WRONLY | O_DSYNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+			
+			rem = 0;
+			while (rem < fr->length) {
+				readSize = chan->cread(buffer, fr->length);
+				rem += readSize;
+				lseek(fperson, fr->offset, 0);
+				write(fperson, buffer, readSize);
+			}
+			
+		} else if (m == QUIT_REQ_TYPE) {
+			Request q = *(Request*) request;
+			chan->cwrite(&q, sizeof(Request));
+			delete chan;
+			break;
+		}
+	}
+	*/
 }
 
+// Param: Histogram Collection reference, Histogram Buffer reference, Optional
 void histogram_thread_function (HistogramCollection* hc, BoundedBuffer* response_buffer){
 	while (true) {
 		vector<char> response = response_buffer->pop();
-		getResponse* r = (getResponse*)response.data();
-		if (r->patient == -1) {
+		Response* r = (Response*)response.data();
+		if (r->p == -1) {
 			break;
 		}
-		hc->update (r->patient, r->ecgValue);
+		hc->update (r->p, r->ecg);
 	}
 }
 
@@ -103,7 +171,6 @@ int main(int argc, char *argv[]){
 	int h = 15; // number of histogram threads
 	string filename = "";
 	bool reqFile = false;
-
 	// take all the arguments first because some of these may go to the server
 	// n-> # of req per patient, p-> # of patients, w-> # worker threads, b-> request buffer cap
 	// m-> receive message buffer cap, f-> file
@@ -124,12 +191,12 @@ int main(int argc, char *argv[]){
 			case 'm':
 				m = atoi(optarg);
 				break;
+			case 'h':
+				h = atoi(optarg);
+				break;
 			case 'f':
 				filename = optarg;
 				reqFile = true;
-				break;
-			case 'h':
-				h = atoi(optarg);
 				break;
 		}
 	}
@@ -139,25 +206,24 @@ int main(int argc, char *argv[]){
 		EXITONERROR ("Could not create a child process for running the server");
 	}
 	if (!pid){ // The server runs in the child process
-		char serverName[] = "./server";
-		char* args[] = {"./server", "-m",(char*)to_string(m).c_str(), nullptr};
-		
+		char servName [] = "./server";
+		char* args[] = {"./server", "-m", (char*)to_string(m).c_str(), nullptr};
 		if (execvp(args[0], args) < 0){
 			EXITONERROR ("Could not launch the server");
 		}
 	}
-
 	FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
 	BoundedBuffer request_buffer(b);
 	BoundedBuffer response_buffer(b);
 	HistogramCollection hc;
 
-	
 	for (int i = 0; i < p; i++) { // initialize histogram collection
 		Histogram* h = new Histogram(10, -2.0, 2.0);
 		hc.add(h);
 	}
-	
+
+	// worker channels = # worker threads
+	// FIFORequestChannel* workerChans[w];
 	FIFORequestChannel* workerChans[w];
 	for (int i = 0; i < w; i++) {
 		Request nc(NEWCHAN_REQ_TYPE);
@@ -177,12 +243,10 @@ int main(int argc, char *argv[]){
 			patient[i] = thread(patient_thread_function, i+1, n, &request_buffer);
 		}
 	}
-	
 	thread workers[w]; // worker threads
 	for (size_t i = 0; i < w; i++) {
 		workers[i] = thread(worker_thread_function, &request_buffer, &response_buffer, workerChans[i], m);
 	}
-	
 	thread histograms[h]; // histogram threads
 	for (size_t i = 0; i < h; i++) {
 		histograms[i] = thread(histogram_thread_function, &hc, &response_buffer);
@@ -190,7 +254,7 @@ int main(int argc, char *argv[]){
 	
 	if (reqFile) { // file threads if necessary
 		std::cout << "File Request\n" << endl;
-		thread fileThread(file_thread, filename, &request_buffer, &chan, m);
+		thread fileThread(file_thread_function, filename, &request_buffer, &chan, m);
 		// join patient and file threads
 		fileThread.join();
 	}
@@ -210,11 +274,6 @@ int main(int argc, char *argv[]){
 	// 4/5. join worker threads, join histogram threads
 	for (int i = 0; i < w; i++) {
 		workers[i].join();
-	}
-	for (size_t i = 0; i < h; i++) {
-		getResponse rtp{-1,0};
-		vector<char> quitmsg((char*)&rtp, ((char*)&rtp) + sizeof(rtp));
-		response_buffer.push(quitmsg);
 	}
 	
 	for (int i = 0; i < h; i++) {

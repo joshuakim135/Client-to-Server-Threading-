@@ -6,11 +6,9 @@ using namespace std;
 #include "Histogram.h"
 
 Histogram::Histogram(int _nbins, double _start, double _end): nbins (_nbins), start(_start), end(_end){
-	//memset (hist, 0, nbins * sizeof (int));	
 	hist = vector<int> (nbins, 0);
 }
-Histogram::~Histogram(){
-}
+Histogram::~Histogram(){}
 void Histogram::update (double value){
 	int bin_index = (int) ((value - start) / (end - start) * nbins);
 	if (bin_index <0)
@@ -18,7 +16,6 @@ void Histogram::update (double value){
 	else if (bin_index >= nbins)
 		bin_index = nbins-1;
 
-	//cout << value << "-" << bin_index << endl;
 	m.lock();
 	hist [bin_index] ++;
 	m.unlock();
